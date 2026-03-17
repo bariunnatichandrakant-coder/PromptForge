@@ -2,7 +2,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { NextResponse } from 'next/server';
 
 const client = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
+  apiKey: process.env.ANTHROPIC_API_KEY!,
 });
 
 export async function POST(req: Request) {
@@ -13,19 +13,30 @@ export async function POST(req: Request) {
       model: 'claude-3-5-sonnet-20240620',
       max_tokens: 1000,
       system: "You are an expert Prompt Engineer. Output ONLY the generated prompt.",
-      messages: [{
-        role: 'user',
-        content: `Create an optimized prompt for ${targetModel}. Topic: ${topic}. Tone: ${tone}.`
-      }]
+      messages: [
+        {
+          role: 'user',
+          content: `Create an optimized prompt for ${targetModel}. Topic: ${topic}. Tone: ${tone}. Context: ${context || "none"}`
+        }
+      ]
     });
 
-    // We name it generatedText here...
-    const generatedText = message.content[0].type === 'text' ? message.content[0].text : "Failed";
+    let generatedText = "Failed";
 
-    // ...and we use generatedText here. They match perfectly now!
+    if (message.content && message.content.length > 0) {
+      const firstBlock = message.content[0];
+      if (firstBlock.type === 'text') {
+        generatedText = firstBlock.text;
+      }
+    }
+
     return NextResponse.json({ prompt: generatedText });
-    
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+
+  } catch (error: unknown) {
+    const err = error as Error;
+    return NextResponse.json(
+      { error: err.message || "Something went wrong" },
+      { status: 500 }
+    );
   }
 }
